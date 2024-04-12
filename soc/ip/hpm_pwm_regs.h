@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023 HPMicro
+ * Copyright (c) 2021-2024 HPMicro
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
@@ -47,7 +47,8 @@ typedef struct {
     __RW uint32_t CMPCFG[24];                  /* 0x230 - 0x28C: Comparator configure register */
     __R  uint8_t  RESERVED8[368];              /* 0x290 - 0x3FF: Reserved */
     __R  uint32_t ANASTS[8];                   /* 0x400 - 0x41C: analog status register */
-    __W  uint32_t HRPWM_CFG;                   /* 0x420: hrpwm config register */
+    __RW uint32_t HRPWM_CFG;                   /* 0x420: hrpwm config register */
+    __RW uint32_t ANA_CFG0;                    /* 0x424: analog config register */
 } PWM_Type;
 
 
@@ -217,7 +218,7 @@ typedef struct {
 /*
  * SHLK (RW)
  *
- * write 1 to lock all shawdow register, wirte access is not permitted
+ * write 1 to lock all shawdow register, write access is not permitted
  */
 #define PWM_SHLK_SHLK_MASK (0x80000000UL)
 #define PWM_SHLK_SHLK_SHIFT (31U)
@@ -925,6 +926,16 @@ typedef struct {
 
 /* Bitfield definition for register: HRPWM_CFG */
 /*
+ * CAL_SW_EN (RW)
+ *
+ * software calibration enable, internal use only
+ */
+#define PWM_HRPWM_CFG_CAL_SW_EN_MASK (0xFF00U)
+#define PWM_HRPWM_CFG_CAL_SW_EN_SHIFT (8U)
+#define PWM_HRPWM_CFG_CAL_SW_EN_SET(x) (((uint32_t)(x) << PWM_HRPWM_CFG_CAL_SW_EN_SHIFT) & PWM_HRPWM_CFG_CAL_SW_EN_MASK)
+#define PWM_HRPWM_CFG_CAL_SW_EN_GET(x) (((uint32_t)(x) & PWM_HRPWM_CFG_CAL_SW_EN_MASK) >> PWM_HRPWM_CFG_CAL_SW_EN_SHIFT)
+
+/*
  * CAL_START (WO)
  *
  * calibration start.
@@ -935,6 +946,16 @@ typedef struct {
 #define PWM_HRPWM_CFG_CAL_START_SHIFT (0U)
 #define PWM_HRPWM_CFG_CAL_START_SET(x) (((uint32_t)(x) << PWM_HRPWM_CFG_CAL_START_SHIFT) & PWM_HRPWM_CFG_CAL_START_MASK)
 #define PWM_HRPWM_CFG_CAL_START_GET(x) (((uint32_t)(x) & PWM_HRPWM_CFG_CAL_START_MASK) >> PWM_HRPWM_CFG_CAL_START_SHIFT)
+
+/* Bitfield definition for register: ANA_CFG0 */
+/*
+ * CAL_SW_TRIG_H (RW)
+ *
+ */
+#define PWM_ANA_CFG0_CAL_SW_TRIG_H_MASK (0x10000UL)
+#define PWM_ANA_CFG0_CAL_SW_TRIG_H_SHIFT (16U)
+#define PWM_ANA_CFG0_CAL_SW_TRIG_H_SET(x) (((uint32_t)(x) << PWM_ANA_CFG0_CAL_SW_TRIG_H_SHIFT) & PWM_ANA_CFG0_CAL_SW_TRIG_H_MASK)
+#define PWM_ANA_CFG0_CAL_SW_TRIG_H_GET(x) (((uint32_t)(x) & PWM_ANA_CFG0_CAL_SW_TRIG_H_MASK) >> PWM_ANA_CFG0_CAL_SW_TRIG_H_SHIFT)
 
 
 

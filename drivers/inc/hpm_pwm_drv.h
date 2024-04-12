@@ -1115,6 +1115,13 @@ hpm_stat_t pwm_update_raw_hrcmp_edge_aligned(PWM_Type *pwm_x, uint8_t cmp_index,
 hpm_stat_t pwm_update_raw_hrcmp_central_aligned(PWM_Type *pwm_x, uint8_t cmp1_index,
                                        uint8_t cmp2_index, uint32_t target_cmp1, uint32_t target_cmp2,
                                         uint16_t target_hrcmp1, uint16_t target_hrcmp2);
+
+/**
+ * @brief Restore hrpwm output if hrpwm is enabled. Only required in failure mode.
+ *
+ * @param pwm_x PWM base address, HPM_PWMx(x=0..n)
+ */
+void pwm_recovery_hrpwm_output(PWM_Type *pwm_x);
 #endif
 
 #ifdef __cplusplus

@@ -185,4 +185,15 @@ hpm_stat_t pwm_update_raw_hrcmp_central_aligned(PWM_Type *pwm_x, uint8_t cmp1_in
     pwm_cmp_update_hrcmp_value(pwm_x, cmp2_index, target_cmp2, target_hrcmp2);
     return status_success;
 }
+
+void pwm_recovery_hrpwm_output(PWM_Type *pwm_x)
+{
+    pwm_x->HRPWM_CFG |= PWM_HRPWM_CFG_CAL_SW_EN_MASK;
+    pwm_x->ANA_CFG0 |= PWM_ANA_CFG0_CAL_SW_TRIG_H_MASK;
+    pwm_x->ANA_CFG0 &= ~PWM_ANA_CFG0_CAL_SW_TRIG_H_MASK;
+    pwm_x->ANA_CFG0 |= PWM_ANA_CFG0_CAL_SW_TRIG_H_MASK;
+    pwm_x->ANA_CFG0 &= ~PWM_ANA_CFG0_CAL_SW_TRIG_H_MASK;
+    pwm_x->HRPWM_CFG &= ~PWM_HRPWM_CFG_CAL_SW_EN_MASK;
+}
+
 #endif

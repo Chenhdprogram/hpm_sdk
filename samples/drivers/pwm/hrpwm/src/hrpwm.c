@@ -19,6 +19,7 @@
 #define PWM_OUTPUT_PIN1 BOARD_APP_HRPWM_OUT1
 #define PWM_OUTPUT_PIN2 BOARD_APP_HRPWM_OUT2
 #define TRGM BOARD_APP_HRPWM_TRGM
+#define HRPWM_IRQ BOARD_APP_HRPWM_IRQ
 #endif
 
 #ifndef TEST_LOOP
@@ -119,6 +120,110 @@ void generate_edge_aligned_waveform(void)
         pwm_update_raw_hrcmp_edge_aligned(HRPWM, cmp_index + 1, reload - duty, 0);
         board_delay_ms(100);
     }
+}
+
+void isr_pwm(void)
+{
+    uint32_t status;
+    status = pwm_get_status(HRPWM);
+    pwm_clear_status(HRPWM, status);
+    if ((status & PWM_IRQ_CMP(BOARD_APP_HRPWM_FAULT_CAP_CMP_INDEX))) {
+        pwm_recovery_hrpwm_output(HRPWM);
+    }
+}
+
+SDK_DECLARE_EXT_ISR_M(HRPWM_IRQ, isr_pwm)
+
+void config_pwm_fault_capture(void)
+{
+    pwm_cmp_config_t cmp_config;
+    trgm_output_t trgm_output_cfg;
+
+    cmp_config.mode = pwm_cmp_mode_input_capture;
+    pwm_config_cmp(HRPWM, BOARD_APP_HRPWM_FAULT_CAP_CMP_INDEX, &cmp_config);
+    intc_m_enable_irq_with_priority(BOARD_APP_HRPWM_IRQ, 1);
+    pwm_enable_irq(HRPWM, PWM_IRQ_CMP(BOARD_APP_HRPWM_FAULT_CAP_CMP_INDEX));
+
+    trgm_output_cfg.invert = false;
+    trgm_output_cfg.type   = trgm_output_same_as_input;
+    trgm_output_cfg.input  = BOARD_APP_HRPWM_FAULT_TRGM_SRC;
+    trgm_output_config(BOARD_APP_HRPWM_TRGM, BOARD_APP_HRPWM_FAULT_TRGM_OUT, &trgm_output_cfg);
+
+}
+
+
+void hrpwm_fault_mode_recovery(void)
+{
+    uint8_t cmp_index = 0;
+    uint32_t duty;
+    pwm_cmp_config_t cmp_config[2] = {0};
+    pwm_config_t pwm_config = {0};
+    pwm_fault_source_config_t fault_config = {};
+
+    pwm_stop_counter(HRPWM);
+    pwm_disable_hrpwm(HRPWM);
+    reset_pwm_counter();
+    pwm_get_default_pwm_config(HRPWM, &pwm_config);
+
+    pwm_config.enable_output = true;
+    pwm_config.dead_zone_in_half_cycle = 0;
+    pwm_config.invert_output = false;
+    pwm_config.fault_mode = pwm_fault_mode_force_output_0;
+    pwm_config.fault_recovery_trigger = pwm_fault_recovery_immediately;
+
+    pwm_cal_hrpwm_chn_start(HRPWM, cmp_index);
+    pwm_cal_hrpwm_chn_start(HRPWM, cmp_index + 1);
+    pwm_cal_hrpwm_chn_wait(HRPWM, cmp_index);
+    pwm_cal_hrpwm_chn_wait(HRPWM, cmp_index + 1);
+
+    pwm_enable_hrpwm(HRPWM);
+    /*
+     * reload and start counter
+     */
+    pwm_set_hrpwm_reload(HRPWM, 0, reload);
+    pwm_set_start_count(HRPWM, 0, 0);
+
+    fault_config.fault_external_0_active_low = true;
+    fault_config.source_mask = PWM_GCR_DEBUGFAULT_SET(1);
+    pwm_config_fault_source(HRPWM, &fault_config);
+    config_pwm_fault_capture();
+
+    /*
+     * config cmp = RELOAD + 1
+     */
+    cmp_config[0].mode = pwm_cmp_mode_output_compare;
+    cmp_config[0].cmp = reload + 1;
+    cmp_config[0].enable_hrcmp = true;
+    cmp_config[0].hrcmp = 0;
+    cmp_config[0].update_trigger = pwm_shadow_register_update_on_hw_event;
+
+    cmp_config[1].mode = pwm_cmp_mode_output_compare;
+    cmp_config[1].cmp = reload;
+    cmp_config[1].update_trigger = pwm_shadow_register_update_on_modify;
+    /*
+     * config pwm as output driven by cmp
+     */
+    if (status_success != pwm_setup_waveform(HRPWM, PWM_OUTPUT_PIN1, &pwm_config, cmp_index, &cmp_config[0], 1)) {
+        printf("failed to setup waveform\n");
+        while (1) {
+        };
+    }
+    cmp_config[0].cmp = reload >> 1;
+    /*
+     * config pwm as reference
+     */
+    if (status_success != pwm_setup_waveform(HRPWM, PWM_OUTPUT_PIN2, &pwm_config, cmp_index + 1, &cmp_config[0], 1)) {
+        printf("failed to setup waveform\n");
+        while (1) {
+        };
+    }
+    pwm_load_cmp_shadow_on_match(HRPWM, cmp_index + 2, &cmp_config[1]);
+
+    pwm_start_counter(HRPWM);
+    pwm_issue_shadow_register_lock_event(HRPWM);
+    duty = reload >> 1;
+    pwm_update_raw_hrcmp_edge_aligned(HRPWM, cmp_index, reload - duty, HRPWM_SET_IN_PWM_CLK);
+    pwm_update_raw_hrcmp_edge_aligned(HRPWM, cmp_index + 1, reload - duty, 0);
 }
 
 void generate_central_aligned_waveform(void)
@@ -334,6 +439,8 @@ int main(void)
     printf("\n\n>> Generate frequency-variable waveforms\n");
     printf("whose frequency will be updated; HRPWM P%d is the target waveform\n", PWM_OUTPUT_PIN1);
     disable_all_pwm_output();
+    printf("\n\n>> HRPwm Fault Recovery.\n");
+    hrpwm_fault_mode_recovery();
     printf("test done\n");
     while (1) {
     };
